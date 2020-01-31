@@ -1,84 +1,41 @@
 #include <iostream>
 #include <SFML/Graphics.hpp>
+#include "main.h"
 using namespace sf;
 using namespace std;
-
-// Bullet class for shooting
-class Bullet
-{
-public:
-	// Functions here
-	// Function: SHOOT
-	int shoot(RenderWindow& app, Vector2f bulletPosition, float bulletRotation)
-	{
-		// PI variable
-		const float PI = 3.14159265f;
-
-		// Create the bullet
-		Texture bulletTexture;
-		bulletTexture.loadFromFile("./images/bullet.png");
-		Sprite bulletSprite(bulletTexture);
-
-		// Smallen Sprite of bullet
-		bulletSprite.scale(Bullet::bulletScale, Bullet::bulletScale);
-
-		// Rotate the bullet
-		bulletSprite.setRotation(bulletRotation - 90);
-
-		// Set variable for screen-scanning
-		auto bulletRect = bulletSprite.getGlobalBounds();
-		Bullet::bulletRectScan = bulletRect;
-
-		// Set position
-		bulletSprite.setPosition(bulletPosition.x, bulletPosition.y);
-		bulletSprite.setOrigin(bulletSprite.getTexture()->getSize().x / 2, bulletSprite.getTexture()->getSize().y / 2);
-
-		// Calculate new Position of Sprite
-		Vector2f bulletMovement;
-		bulletMovement.x = (float)cos((bulletRotation * PI) / 180) * bulletSpeed;
-		bulletMovement.y = (float)sin((bulletRotation * PI) / 180) * bulletSpeed;
-
-		// Move the actual sprite
-		bulletSprite.move(bulletMovement.x, bulletMovement.y);
-
-		// Draw the sprite on the app
-		app.draw(bulletSprite);
-		return EXIT_SUCCESS;
-	};
-
-	// Variables
-	float bulletScale = 0.10;
-	float bulletSpeed = 10;
-	FloatRect bulletRectScan;
-	FloatRect View;
-};
 
 int main()
 {
 	// Player color
 	string PlayerColor = "red";
 
+	// For spawning
+	bool firstTimeSpawningInLoop = false;
+
+	// Enemy class
+	Enemy enem = Enemy();
+	enem.init();
+	enem.preInit();
+
+	// For bullet counter
 	const int maxBullets = 5;
 	int bulletsLeft;
 
+	// For Enemy spawning
+	const int minSpawnPosition = 1;
+	const int maxSpawnPosition = 4;
+
 	// PI variable
 	const float PI = 3.14159265f;
-
-	// Enemy counter
-	float curEnemyCount = 1;
-	float newEnemyCount;
-	int wave = 1;
-	float increaseEveryRound = 1.7;
 
 	// Default size for scaling
 	int screenWidth = 1920;
 	int screenHeight = 1080;
 	int scaleSize = 30;
 	float playerScaleSize = 0.25;
-	float enemyScaleSize = playerScaleSize / 4 * 3;
 
 	// Render the window and set the frame limit
-	RenderWindow app(VideoMode(screenWidth, screenHeight), "Top-Down Shooter Game!");
+	RenderWindow app(VideoMode(screenWidth, screenHeight), "Top-Down 8-Bit Shooter Game!");
 	app.setFramerateLimit(60);
 
 	// Create a fixed view variable
@@ -90,23 +47,19 @@ int main()
 	// Create texture variables
 	Texture BackgroundTexture;
 	Texture PlayerTexture;
-	Texture EnemyTexture;
 
 	// Load the textures
 	BackgroundTexture.loadFromFile("./images/Background.png");
 	PlayerTexture.loadFromFile("./images/Player_" + PlayerColor + ".png"); // With other colors
-	EnemyTexture.loadFromFile("./images/Enemy.png");
 
 	// Create a sprite for the textures
 	Sprite backgroundSprite(BackgroundTexture);
 	Sprite playerSprite(PlayerTexture);
-	Sprite enemySprite(EnemyTexture);
 
 	// Make the Player smaller
 	playerSprite.scale(Vector2f(playerScaleSize, playerScaleSize));
 
-	// Re-scale the Enemy
-	enemySprite.scale(Vector2f(enemyScaleSize, enemyScaleSize));
+	
 
 	// Set the position of the background
 	backgroundSprite.setPosition(0, 0);
@@ -127,11 +80,12 @@ int main()
 	int enemySpeedWhileStandingStill = 0;
 	float enemyMaxMovementSpeed = 7.5;
 	float enemyAngle = 0;
+	float enemyScaleSize = 0.25 / 4 * 3;
 
 	// TEMP for upping waves
 	bool hasBeenPressed = false;
 
-	// :D
+	// Bullet position and angle
 	Vector2f bulletPosition = Vector2f(0, 0);
 	float bulletAngle = 0.f;
 
@@ -140,6 +94,32 @@ int main()
 
 	// Set to max bullets
 	bulletsLeft = maxBullets;
+
+	// Enemy counter
+	int wave = 1;
+	float increaseEnemiesEveryWave = 1.7;
+	int totalKilledEnemies = 0;
+	int curEnemyCount = 0;
+	int prevEnemyCount = 0;
+
+	if (wave == 1)
+	{
+		// If wave is 1
+		curEnemyCount = round(wave * increaseEnemiesEveryWave);
+	}
+	else if (wave > 1)
+	{
+		// Set previous amount of enemies
+		prevEnemyCount = curEnemyCount;
+
+		// If wave is above 1
+		curEnemyCount = round(prevEnemyCount * increaseEnemiesEveryWave);
+	}
+
+	// Shooting class
+	Bullet bullet;
+	bullet.init();
+	bullet.preShoot(Vector2f(770, 350), true);
 
 	// While the app is opened
 	while (app.isOpen())
@@ -155,8 +135,8 @@ int main()
 			}
 		}
 
-		// Shooting class
-		Bullet bullet;
+		// Get the surrounding of the Player
+		FloatRect playerCollision = playerSprite.getGlobalBounds();
 
 		// Player position and mouse position
 		Vector2f spritePosition = playerSprite.getPosition();
@@ -212,12 +192,12 @@ int main()
 			speed = speedWhileStandingStill;
 		}
 
-		// TEMP for next wave
-		if (Keyboard::isKeyPressed(Keyboard::Right) && hasBeenPressed == false)
-		{
-			hasBeenPressed = true;
-			wave += 1;
-		};
+		//// TEMP for next wave
+		//if (Keyboard::isKeyPressed(Keyboard::Right) && hasBeenPressed == false)
+		//{
+		//	hasBeenPressed = true;
+		//	
+		//};
 
 		if (e.type == Event::KeyReleased && e.key.code == Keyboard::Key::Right)
 		{
@@ -226,7 +206,7 @@ int main()
 
 		// Draw the app HERE
 
-			// Clear the app first
+		// Clear the app first
 		app.clear(Color::White);
 
 		// Set the view
@@ -235,11 +215,12 @@ int main()
 		// Draw the background
 		app.draw(backgroundSprite);
 
-		if (Mouse::isButtonPressed(Mouse::Button::Left) > 0 && !shotHasBeenFired)
+		// When shooting
+		if (Mouse::isButtonPressed(Mouse::Button::Left) && !shotHasBeenFired)
 		{
 			bulletPosition = spritePosition;
 			bulletAngle = PlayerRotation;
-			bulletsLeft -= 1;
+			bullet.preShoot(bulletPosition);
 			bullet.shoot(app, bulletPosition, bulletAngle);
 			shotHasBeenFired = true;
 		}
@@ -258,10 +239,10 @@ int main()
 			bullet.shoot(app, bulletPosition, bulletAngle);
 		}
 
-		// Reload?
-		if (Mouse::isButtonPressed(Mouse::Button::Right) && shotHasBeenFired)
+		// Reload
+		if (Mouse::isButtonPressed(Mouse::Button::Right))
 		{
-			bulletsLeft = maxBullets;
+			bullet.hide();
 			shotHasBeenFired = false;
 		}
 
@@ -271,15 +252,45 @@ int main()
 		// Draw the Player's Character
 		app.draw(playerSprite);
 
+		/*
+		// Re-draw enemies by getting new position and angle
 		for (int index = 0; index < curEnemyCount; index++)
 		{
-			// Draw the Enemy Character
-			app.draw(enemySprite);
+			// TODO:
+			// Check for the amount of zombies left
+			// Then set their position one step closer to Player
+			// Then set their rotation facing the Player
+			// Repeat.
+		}
+		*/
+
+		enem.currentPosition = enem.getPosition();
+		//app.draw(enem.sprite);
+		enem.rotate(app, spritePosition);
+
+		if (enem.getCollision(playerCollision))
+		{
+			app.close();
+		}
+		else
+		{
+			enem.move(app, spritePosition);
+		}
+
+		if (!enem.hasDied &&  bullet.getCollision(enem.bounds()))
+		{
+			bullet.hide();
+			enem.kill();
+
+			wave += 1;
+			enem.preInit();
+			enem.speed++;
+
 		}
 
 		// Display the app
 		app.display();
-	}
+	};
 
 	return EXIT_SUCCESS;
 }
@@ -293,9 +304,9 @@ PRIO:
 TODO:
 - Fix bug when cursor and Player are equal so the Player glitches (3) => NOT DONE
 - Enemy needs to head for the Player (1) => NOT DONE
-- Random Enemy spawn between certain points (2) =>NOT  DONE
+- Random Enemy spawn between certain points (2) => NOT  DONE
 - Add the ability for the Player to shoot (1) => DONE
-- Allow the Player to shoot more then once (1) => NOT DONE
+- Allow the Player to shoot more then once (2) => NOT DONE
 
 HUD: (2) => NOT DONE
 - Wave counter on bottom left
